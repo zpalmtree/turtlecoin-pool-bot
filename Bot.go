@@ -23,7 +23,7 @@ const poolsJSON string = "https://raw.githubusercontent.com/turtlecoin/" +
 
 /* You will need to change this to the channel ID of the pools channel. To
    get this, go here - https://stackoverflow.com/a/41515544/8737306 */
-const poolsChannel string = "426575033935331328"
+const poolsChannel string = "426881205263269900"
 
 /* The amount of blocks a pool can vary from the others before we notify */
 const poolMaxDifference int = 0
@@ -82,8 +82,25 @@ func main() {
     fmt.Println("Shutdown.")
 }
 
+func writeClaims() {
+    file, err := os.Create("claims.txt")
+
+    if err != nil {
+        fmt.Println("Failed to open file! Error:", err)
+        return
+    }
+
+    defer file.Close()
+
+    for k, v := range globalClaims {
+        file.WriteString(fmt.Sprintf("%s:%s\n", k, v))
+    }
+
+    file.Sync()
+}
+
 func getClaims() (map[string]string, error) {
-    var claims map[string]string
+    claims := make(map[string]string)
 
     /* File exists */
     if _, err := os.Stat("claims.txt"); err == nil {
@@ -96,9 +113,18 @@ func getClaims() (map[string]string, error) {
         }
 
         scanner := bufio.NewScanner(file)
+    
+        re := regexp.MustCompile("(.+):(\\d+)")
 
         for scanner.Scan() {
-            // do something
+            matches := re.FindStringSubmatch(scanner.Text())
+
+            if len(matches) < 3 {
+                fmt.Println("Failed to parse claim!")
+                continue
+            }
+
+            claims[matches[1]] = matches[2]
         }
 
         if err := scanner.Err(); err != nil {
@@ -119,6 +145,8 @@ func heightWatcher(s *discordgo.Session) {
 
         sendMessage := false
 
+        poolOwners := make([]string, 0)
+
         msg := fmt.Sprintf("```It looks like some pools are stuck, forked, " +
                            "or behind!\nMedian pool height: %d\n\n", 
                            globalHeight)
@@ -127,6 +155,12 @@ func heightWatcher(s *discordgo.Session) {
             if v > globalHeight + poolMaxDifference || 
                v < globalHeight - poolMaxDifference {
                 msg += fmt.Sprintf("%-25s %d\n", k, v)
+
+                if val, ok := globalClaims[k]; ok {
+                    /* Add the pool owner ID to mention later */
+                    poolOwners = append(poolOwners, val)
+                }
+
                 sendMessage = true
             }
         }
@@ -134,6 +168,10 @@ func heightWatcher(s *discordgo.Session) {
         msg += "```"
 
         if sendMessage {
+            for _, owner := range poolOwners {
+                msg += fmt.Sprintf("<@%s> ", owner)
+            }
+
             s.ChannelMessageSend(poolsChannel, msg)
         }
     }
@@ -212,8 +250,60 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
         s.ChannelMessageSend(m.ChannelID,
                              fmt.Sprintf("Couldn't find pool %s - type " +
-                                         "`.heights` to view all known pools",
+                                         "`.heights` to view all known pools.",
                                          message))
+
+        return
+    }
+
+    if m.Content == ".claim" {
+        s.ChannelMessageSend(m.ChannelID,
+                             "You must specify a pool to claim!\nType " +
+                             "`.heights` to list all pools.")
+
+        return
+    }
+
+    if strings.HasPrefix(m.Content, ".claim") {
+        message := strings.TrimPrefix(m.Content, ".claim")
+        message = message[1:]
+
+        for k, _ := range globalPools {
+            if k == message {
+                /* Pool has already been claimed */
+                if val, ok := globalClaims[k]; ok {
+                    user, err := s.User(val)
+
+                    if err != nil {
+                        fmt.Println("Couldn't find user! Error:", err)
+                    }
+
+                    s.ChannelMessageSend(m.ChannelID,
+                                         fmt.Sprintf("%s has already been " +
+                                                     "claimed by %s!", k,
+                                                     user.Username))
+                    
+                    return
+                /* Otherwise insert into the map */
+                } else {
+                    globalClaims[k] = m.Author.ID
+                    
+                    s.ChannelMessageSend(m.ChannelID,
+                                         fmt.Sprintf("You have claimed %s!", k))
+
+                    writeClaims()
+
+                    return
+                }
+            }
+        }
+
+        s.ChannelMessageSend(m.ChannelID,
+                             fmt.Sprintf("Could find pool %s - type " +
+                                         "`.heights` to view all known pools.",
+                                         message))
+
+        return
     }
 }
 
