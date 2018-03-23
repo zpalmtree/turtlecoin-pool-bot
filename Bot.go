@@ -41,8 +41,6 @@ func main() {
 
     globalPools, err = getPools()
 
-    fmt.Println(len(globalPools))
-
     if err != nil {
         return
     }
@@ -133,6 +131,26 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
                                          globalHeight))
 
         return
+    }
+
+    if strings.HasPrefix(m.Content, ".height") {
+        message := strings.TrimPrefix(m.Content, ".height")
+        /* Remove first char - probably a space but should make sure */
+        message = message[1:]
+
+        for k, v := range globalHeights {
+            if k == message {
+                s.ChannelMessageSend(m.ChannelID,
+                                     fmt.Sprintf("```%s pool height:\n\n%d```",
+                                                 k, v))
+                return
+            }
+        }
+
+        s.ChannelMessageSend(m.ChannelID,
+                             fmt.Sprintf("Couldn't find pool %s - type " +
+                                         "`.heights` to view all known pools",
+                                         message))
     }
 }
 
