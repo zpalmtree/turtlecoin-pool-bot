@@ -21,6 +21,16 @@ import (
 const poolsJSON string = "https://raw.githubusercontent.com/turtlecoin/" +
                          "turtlecoin-pools-json/master/turtlecoin-pools.json"
 
+/* You will need to change this to the channel ID of the pools channel. To
+   get this, go here - https://stackoverflow.com/a/41515544/8737306 */
+const poolsChannel string = "426575033935331328"
+
+/* The amount of blocks a pool can vary from the others before we notify */
+const poolMaxDifference int = 0
+
+/* How often we check the pools */
+const poolRefreshRate time.Duration = time.Second * 30
+
 type Pool struct {
     Url string `json:??,string`
     Api string `json:url,string`
@@ -31,13 +41,11 @@ type Pools map[string]*Pool
 var globalPools Pools
 var globalHeights map[string]int
 var globalHeight int
+var globalClaims map[string]string
 
 func main() {
-    discord, err := startup()
-    
-    if err != nil {
-        return
-    }
+    /* Need to not shadow global variables */
+    var err error
 
     globalPools, err = getPools()
 
@@ -49,10 +57,18 @@ func main() {
 
     globalHeight = median(getValues(globalHeights))
 
+    globalClaims, err = getClaims()
+
+    discord, err := startup()
+    
+    if err != nil {
+        return
+    }
+
     fmt.Println("Bot started!")
 
     /* Update the height and pools in the background */
-    go heightWatcher()
+    go heightWatcher(discord)
     go poolUpdater()
 
     sc := make(chan os.Signal, 1)
@@ -66,13 +82,60 @@ func main() {
     fmt.Println("Shutdown.")
 }
 
-/* Update the height and median height every 30 secs */
-func heightWatcher() {
+func getClaims() (map[string]string, error) {
+    var claims map[string]string
+
+    /* File exists */
+    if _, err := os.Stat("claims.txt"); err == nil {
+        file, err := os.Open("claims.txt")
+
+        defer file.Close()
+
+        if err != nil {
+            return claims, err
+        }
+
+        scanner := bufio.NewScanner(file)
+
+        for scanner.Scan() {
+            // do something
+        }
+
+        if err := scanner.Err(); err != nil {
+            fmt.Println("Failed to read claims.txt! Error:", err)
+            return claims, err
+        }
+    }
+
+    return claims, nil
+}
+
+func heightWatcher(s *discordgo.Session) {
     for {
-        time.Sleep(time.Second * 30)
+        time.Sleep(poolRefreshRate)
 
         globalHeights = getHeights(globalPools)
         globalHeight = median(getValues(globalHeights))
+
+        sendMessage := false
+
+        msg := fmt.Sprintf("```It looks like some pools are stuck, forked, " +
+                           "or behind!\nMedian pool height: %d\n\n", 
+                           globalHeight)
+
+        for k, v := range globalHeights {
+            if v > globalHeight + poolMaxDifference || 
+               v < globalHeight - poolMaxDifference {
+                msg += fmt.Sprintf("%-25s %d\n", k, v)
+                sendMessage = true
+            }
+        }
+
+        msg += "```"
+
+        if sendMessage {
+            s.ChannelMessageSend(poolsChannel, msg)
+        }
     }
 }
 
