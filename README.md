@@ -16,4 +16,4 @@
 
 ## Running
 
-* `./Bot.go`
+* `./Bot`
