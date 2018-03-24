@@ -378,8 +378,6 @@ func poolUpdater() {
             p.warnedApi = false
             p.warnedHeight = false
 
-            poolInfo = append(poolInfo, p)
-
             /* Update it with the local pool info if it exists */
             for _, localPool := range globalInfo.pools {
                 if p.url == localPool.url {
@@ -391,6 +389,8 @@ func poolUpdater() {
                     break
                 }
             }
+
+            poolInfo = append(poolInfo, p)
         }
 
         /* Update the global struct */
