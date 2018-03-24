@@ -57,7 +57,6 @@ type PoolInfo struct {
     claimed             bool
     userID              string
     height              int
-    heightFailCounter   int
     apiFailCounter      int
     warnedApi           bool
     warnedHeight        bool
@@ -122,7 +121,6 @@ func setup() error {
         }
 
         p.apiFailCounter = 0
-        p.heightFailCounter = 0
 
         p.warnedApi = false
         p.warnedHeight = false
@@ -197,12 +195,16 @@ func getClaims() (map[string]string, error) {
 }
 
 func checkForDownedApis(s *discordgo.Session) {
-    msg := fmt.Sprintf("```It looks like some pools api's have gone " +
-                       "down!\nMedian pool height: %d\n\n", 
-                       globalInfo.medianHeight)
+    downMsg := fmt.Sprintf("```It looks like some pools api's have gone " +
+                           "down!\nMedian pool height: %d\n\n", 
+                            globalInfo.medianHeight)
+
+    recoverMsg := fmt.Sprintf("```Some pools api's have recovered!\nMedian " +
+                              "pool height: %d\n\n", globalInfo.medianHeight)
 
     poolOwners := make([]string, 0)
-    sendMessage := false
+    sendDownMessage := false
+    sendRecoverMessage := false
 
     for index, _ := range globalInfo.pools {
         v := &globalInfo.pools[index]
@@ -214,10 +216,10 @@ func checkForDownedApis(s *discordgo.Session) {
                 v.apiFailCounter++
             /* Only warn the user once */
             } else if !v.warnedApi {
-                sendMessage = true;
+                sendDownMessage = true;
                 v.warnedApi = true
 
-                msg += fmt.Sprintf("%-25s %d\n", v.url, v.height)
+                downMsg += fmt.Sprintf("%-25s %d\n", v.url, v.height)
 
                 if v.claimed {
 
@@ -237,19 +239,30 @@ func checkForDownedApis(s *discordgo.Session) {
                 }
             }
         } else {
+            if v.warnedApi {
+                sendRecoverMessage = true
+                recoverMsg += fmt.Sprintf("%-25s %d\n", v.url, v.height)
+            }
+
             v.apiFailCounter = 0
             v.warnedApi = false
         }
     }
 
-    msg += "```"
+    downMsg += "```"
+    recoverMsg += "```"
 
-    if sendMessage {
+    if sendDownMessage {
         for _, owner := range poolOwners {
-            msg += fmt.Sprintf("<@%s> ", owner)
+            /* Ping the owners */
+            downMsg += fmt.Sprintf("<@%s> ", owner)
         }
 
-        s.ChannelMessageSend(poolsChannel, msg)
+        s.ChannelMessageSend(poolsChannel, downMsg)
+    }
+
+    if sendRecoverMessage {
+        s.ChannelMessageSend(poolsChannel, recoverMsg)
     }
 }
 
@@ -274,12 +287,7 @@ func checkForBehindChains(s *discordgo.Session) {
              v.height < globalInfo.medianHeight -
                         poolMaxDifference) &&
              v.height != 0) {
-            /* Maybe their api momentarily went down or something, don't
-               instantly ping */
-            if v.heightFailCounter <= 2 {
-                v.heightFailCounter++
-            /* Only warn the user once */
-            } else if !v.warnedHeight {
+            if !v.warnedHeight {
                 sendDownMessage = true;
                 v.warnedHeight = true
 
@@ -308,7 +316,6 @@ func checkForBehindChains(s *discordgo.Session) {
                 recoverMsg += fmt.Sprintf("%-25s %d\n", v.url, v.height)
             }
 
-            v.heightFailCounter = 0
             v.warnedHeight = false
         }
     }
@@ -397,7 +404,6 @@ func poolUpdater() {
             }
 
             p.apiFailCounter = 0
-            p.heightFailCounter = 0
 
             p.warnedApi = false
             p.warnedHeight = false
@@ -405,7 +411,6 @@ func poolUpdater() {
             /* Update it with the local pool info if it exists */
             for _, localPool := range globalInfo.pools {
                 if p.url == localPool.url {
-                    p.heightFailCounter = localPool.heightFailCounter
                     p.apiFailCounter = localPool.apiFailCounter
                     p.warnedApi = localPool.warnedApi
                     p.warnedHeight = localPool.warnedHeight
