@@ -436,27 +436,25 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
     }
 
     if m.Content == ".heights" {
-        heightsPretty := "```\nPool                      Height     Block Last Found\n\n"
+        heightsPretty := "```\nPool                      Height     Block " +
+                         "Last Found\n\n"
 
         for _, v := range globalInfo.pools {
             mins := int(time.Since(v.timeLastFound).Minutes())
             hours := int(time.Since(v.timeLastFound).Hours())
 
             if v.timeLastFound.IsZero() {
-                heightsPretty += fmt.Sprintf("%-25s %-6d     " +
-                                             "Never\n", v.url, v.height)
+                heightsPretty += fmt.Sprintf("%-25s %-11dNever\n", 
+                                             v.url, v.height)
             } else if mins < 60 {
-                heightsPretty += fmt.Sprintf("%-25s %-6d     %d " +
-                                             "minutes ago\n", v.url, v.height, 
-                                             mins)
+                heightsPretty += fmt.Sprintf("%-25s %-11d%d minutes ago\n",
+                                             v.url, v.height, mins)
             } else if hours < 24 {
-                heightsPretty += fmt.Sprintf("%-25s %-6d     %d " +
-                                             "hours ago\n", v.url, v.height, 
-                                             hours)
+                heightsPretty += fmt.Sprintf("%-25s %-11d%d hours ago\n",
+                                             v.url, v.height, hours)
             } else {
-                heightsPretty += fmt.Sprintf("%-25s %-6d     %d " +
-                                             "days ago\n", v.url, v.height, 
-                                             int(hours / 24))
+                heightsPretty += fmt.Sprintf("%-25s %-11d%d days ago\n",
+                                             v.url, v.height, int(hours / 24))
             }
         }
 
