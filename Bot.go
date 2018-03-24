@@ -206,12 +206,12 @@ func checkForDownedApis(s *discordgo.Session) {
         if v.height == 0 {
             /* Maybe their api momentarily went down or something, don't
                instantly ping */
-            if v.heightFailCounter <= 2 {
-                v.heightFailCounter++
+            if v.apiFailCounter <= 2 {
+                v.apiFailCounter++
             /* Only warn the user once */
             } else if !v.warnedApi {
                 sendMessage = true;
-                v.warnedHeight = true
+                v.warnedApi = true
 
                 msg += fmt.Sprintf("%-25s %d\n", v.url, v.height)
 
@@ -233,8 +233,8 @@ func checkForDownedApis(s *discordgo.Session) {
                 }
             }
         } else {
-            v.heightFailCounter = 0
-            v.warnedHeight = false
+            v.apiFailCounter = 0
+            v.warnedApi = false
         }
     }
 
@@ -267,12 +267,12 @@ func checkForBehindChains(s *discordgo.Session) {
              v.height != 0) {
             /* Maybe their api momentarily went down or something, don't
                instantly ping */
-            if v.apiFailCounter <= 2 {
-                v.apiFailCounter++
+            if v.heightFailCounter <= 2 {
+                v.heightFailCounter++
             /* Only warn the user once */
-            } else if !v.warnedApi {
+            } else if !v.warnedHeight {
                 sendMessage = true;
-                v.warnedApi = true
+                v.warnedHeight = true
 
                 msg += fmt.Sprintf("%-25s %d\n", v.url, v.height)
 
@@ -294,8 +294,8 @@ func checkForBehindChains(s *discordgo.Session) {
                 }
             }
         } else {
-            v.apiFailCounter = 0
-            v.warnedApi = false
+            v.heightFailCounter = 0
+            v.warnedHeight = false
         }
     }
 
