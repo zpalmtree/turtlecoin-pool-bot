@@ -16,6 +16,8 @@ import (
     "errors"
     "sort"
     "time"
+    "compress/flate"
+    "bytes"
 )
 
 const poolsJSON string = "https://raw.githubusercontent.com/turtlecoin/" +
@@ -591,6 +593,17 @@ func getPoolHeight (apiURL string) (int, error) {
         fmt.Printf("Failed to download stats from %s! Error: %s\n",
                     statsURL, err)
         return 0, err
+    }
+
+    /* Some servers (Looking at you us.turtlepool.space! send us deflate'd
+       content even when we didn't ask for it - uncompress it */
+    if resp.Header.Get("Content-Encoding") == "deflate" {
+        body, err = ioutil.ReadAll(flate.NewReader(bytes.NewReader(body)))
+
+        if err != nil {
+            fmt.Println("Failed to deflate response from", statsURL)
+            return 0, err
+        }
     }
 
     re := regexp.MustCompile(".*\"height\":(\\d+).*")
