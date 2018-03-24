@@ -60,6 +60,7 @@ type PoolInfo struct {
     apiFailCounter      int
     warnedApi           bool
     warnedHeight        bool
+    timeLastFound       time.Time
 }
 
 var globalInfo PoolsInfo
@@ -408,6 +409,7 @@ func poolUpdater() {
                     p.warnedApi = localPool.warnedApi
                     p.warnedHeight = localPool.warnedHeight
                     p.height = localPool.height
+                    p.timeLastFound = localPool.timeLastFound
                     break
                 }
             }
@@ -434,10 +436,28 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
     }
 
     if m.Content == ".heights" {
-        heightsPretty := "```\nAll known pool heights:\n\n"
+        heightsPretty := "```\nPool                      Height     Block Last Found:\n\n"
 
         for _, v := range globalInfo.pools {
-            heightsPretty += fmt.Sprintf("%-25s %d\n", v.url, v.height)
+            mins := int(time.Since(v.timeLastFound).Minutes())
+            hours := int(time.Since(v.timeLastFound).Hours())
+
+            if v.timeLastFound.IsZero() {
+                heightsPretty += fmt.Sprintf("%-25s %-6d     " +
+                                             "Never\n", v.url, v.height)
+            } else if mins < 60 {
+                heightsPretty += fmt.Sprintf("%-25s %-6d     %d " +
+                                             "minutes ago\n", v.url, v.height, 
+                                             mins)
+            } else if hours < 24 {
+                heightsPretty += fmt.Sprintf("%-25s %-6d     %d " +
+                                             "hours ago\n", v.url, v.height, 
+                                             hours)
+            } else {
+                heightsPretty += fmt.Sprintf("%-25s %-6d     %d " +
+                                             "days ago\n", v.url, v.height, 
+                                             int(hours / 24))
+            }
         }
 
         heightsPretty += "```"
@@ -591,17 +611,18 @@ func populateHeights() {
         /* Range takes a copy of the values, we need to directly access */
         v := &globalInfo.pools[index]
 
-        height, err := getPoolHeight(v.api)
+        height, unix, err := getPoolHeightAndTimestamp(v.api)
 
         if err == nil {
             v.height = height
+            v.timeLastFound = time.Unix(unix, 0)
         } else {
             v.height = 0
         }
     }
 }
 
-func getPoolHeight (apiURL string) (int, error) {
+func getPoolHeightAndTimestamp (apiURL string) (int, int64, error) {
     statsURL := apiURL + "stats"
 
     resp, err := http.Get(statsURL)
@@ -609,7 +630,7 @@ func getPoolHeight (apiURL string) (int, error) {
     if err != nil {
         fmt.Printf("Failed to download stats from %s! Error: %s\n", 
                     statsURL, err)
-        return 0, err
+        return 0, 0, err
     }
 
     defer resp.Body.Close()
@@ -619,7 +640,7 @@ func getPoolHeight (apiURL string) (int, error) {
     if err != nil {
         fmt.Printf("Failed to download stats from %s! Error: %s\n",
                     statsURL, err)
-        return 0, err
+        return 0, 0, err
     }
 
     /* Some servers (Looking at you us.turtlepool.space! send us deflate'd
@@ -629,27 +650,45 @@ func getPoolHeight (apiURL string) (int, error) {
 
         if err != nil {
             fmt.Println("Failed to deflate response from", statsURL)
-            return 0, err
+            return 0, 0, err
         }
     }
 
-    re := regexp.MustCompile(".*\"height\":(\\d+).*")
+    heightRegex := regexp.MustCompile(".*\"height\":(\\d+).*")
+    blockFoundRegex := regexp.MustCompile(".*\"lastBlockFound\":\"(\\d+)\".*")
 
-    height := re.FindStringSubmatch(string(body))
+    height := heightRegex.FindStringSubmatch(string(body))
+    blockFound := blockFoundRegex.FindStringSubmatch(string(body))
 
     if len(height) < 2 {
         fmt.Println("Failed to parse height from", statsURL)
-        return 0, errors.New("Couldn't parse height")
+        return 0, 0, errors.New("Couldn't parse height")
+    }
+
+    if len(blockFound) < 2 {
+        fmt.Println("Failed to parse block last found timestamp from", statsURL)
+        return 0, 0, errors.New("Couldn't parse block timestamp")
     }
 
     i, err := strconv.Atoi(height[1])
 
     if err != nil {
         fmt.Println("Failed to convert height into int! Error:", err)
-        return 0, err
+        return 0, 0, err
     }
 
-    return i, nil
+    str := blockFound[1]
+    blockFound[1] = str[0:len(str) - 3]
+    
+    /* Don't overflow on 32 bit */
+    unix, err := strconv.ParseInt(blockFound[1], 10, 64)
+
+    if err != nil {
+        fmt.Println("Failed to convert timestamp into int! Error:", err)
+        return 0, 0, err
+    }
+
+    return i, unix, nil
 }
 
 func getPools() (Pools, error) {
