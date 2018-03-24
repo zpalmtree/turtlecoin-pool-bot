@@ -406,6 +406,11 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
         return
     }
 
+    /* Only send messages in the pool channel */
+    if m.ChannelID != poolsChannel {
+        return
+    }
+
     if m.Content == ".heights" {
         heightsPretty := "```\nAll known pool heights:\n\n"
 
