@@ -28,7 +28,7 @@ const poolsJSON string = "https://raw.githubusercontent.com/turtlecoin/" +
 const poolsChannel string = "426881205263269900"
 
 /* The amount of blocks a pool can vary from the others before we notify */
-const poolMaxDifference int = 0
+const poolMaxDifference int = 5
 
 /* How often we check the pools */
 const poolRefreshRate time.Duration = time.Second * 30
