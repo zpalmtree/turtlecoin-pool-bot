@@ -252,12 +252,17 @@ func checkForDownedApis(s *discordgo.Session) {
 }
 
 func checkForBehindChains(s *discordgo.Session) {
-    msg := fmt.Sprintf("```It looks like some pools are stuck, " +
-                       "forked, or behind!\nMedian pool height: %d\n\n", 
-                       globalInfo.medianHeight)
+    downMsg := fmt.Sprintf("```It looks like some pools are stuck, " +
+                           "forked, or behind!\nMedian pool height: %d\n\n", 
+                            globalInfo.medianHeight)
+
+    recoverMsg := fmt.Sprintf("```Some pools have recovered!\nMedian pool " +
+                              "height: %d\n\n", globalInfo.medianHeight)
 
     poolOwners := make([]string, 0)
-    sendMessage := false
+
+    sendDownMessage := false
+    sendRecoverMessage := false
 
     for index, _ := range globalInfo.pools {
         v := &globalInfo.pools[index]
@@ -273,10 +278,10 @@ func checkForBehindChains(s *discordgo.Session) {
                 v.heightFailCounter++
             /* Only warn the user once */
             } else if !v.warnedHeight {
-                sendMessage = true;
+                sendDownMessage = true;
                 v.warnedHeight = true
 
-                msg += fmt.Sprintf("%-25s %d\n", v.url, v.height)
+                downMsg += fmt.Sprintf("%-25s %d\n", v.url, v.height)
 
                 if v.claimed {
 
@@ -296,19 +301,30 @@ func checkForBehindChains(s *discordgo.Session) {
                 }
             }
         } else {
+            if v.warnedHeight {
+                sendRecoverMessage = true
+                recoverMsg += fmt.Sprintf("%-25s %d\n", v.url, v.height)
+            }
+
             v.heightFailCounter = 0
             v.warnedHeight = false
         }
     }
 
-    msg += "```"
+    downMsg += "```"
+    recoverMsg += "```"
 
-    if sendMessage {
+    if sendDownMessage {
         for _, owner := range poolOwners {
-            msg += fmt.Sprintf("<@%s> ", owner)
+            /* Ping the owners */
+            downMsg += fmt.Sprintf("<@%s> ", owner)
         }
 
-        s.ChannelMessageSend(poolsChannel, msg)
+        s.ChannelMessageSend(poolsChannel, downMsg)
+    }
+
+    if sendRecoverMessage {
+        s.ChannelMessageSend(poolsChannel, recoverMsg)
     }
 
 }
@@ -324,8 +340,14 @@ func checkForStuckChain(s *discordgo.Session) {
                                          "found %d minutes ago!", 
                                          int(timeSinceLastBlock.Minutes())))
         globalInfo.warned = true
-    } else {
+    /* We have already warned, so print out a recovery message */
+    } else if globalInfo.warned{
         globalInfo.warned = false
+        s.ChannelMessageSend(poolsChannel,
+                             fmt.Sprintf("The chain appears to have " +
+                                         "recovered. The last block was " +
+                                         "found %d minutes ago.",
+                                         int(timeSinceLastBlock.Minutes())))
     }
 }
 
