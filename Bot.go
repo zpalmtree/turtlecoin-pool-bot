@@ -436,7 +436,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
     }
 
     if m.Content == ".heights" {
-        heightsPretty := "```\nPool                      Height     Block Last Found:\n\n"
+        heightsPretty := "```\nPool                      Height     Block Last Found\n\n"
 
         for _, v := range globalInfo.pools {
             mins := int(time.Since(v.timeLastFound).Minutes())
