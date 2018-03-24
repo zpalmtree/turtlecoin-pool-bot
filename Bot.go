@@ -41,20 +41,23 @@ type Pools map[string]Pool
 
 /* Info about every pool */
 type PoolsInfo struct {
-    pools []PoolInfo
-    medianHeight int
-    heightLastUpdated time.Time
+    pools               []PoolInfo
+    medianHeight        int
+    heightLastUpdated   time.Time
+    warned              bool
 }
 
 /* Info about an individual pool */
 type PoolInfo struct {
-    url string
-    api string
-    claimed bool
-    userID string
-    height int
-    failCounter int
-    warned bool
+    url                 string
+    api                 string
+    claimed             bool
+    userID              string
+    height              int
+    heightFailCounter   int
+    apiFailCounter      int
+    warnedApi           bool
+    warnedHeight        bool
 }
 
 var globalInfo PoolsInfo
@@ -114,14 +117,19 @@ func setup() error {
             p.claimed = false
         }
 
-        p.failCounter = 0
-        p.warned = false
+        p.apiFailCounter = 0
+        p.heightFailCounter = 0
+
+        p.warnedApi = false
+        p.warnedHeight = false
 
         poolInfo = append(poolInfo, p)
     }
 
     /* Update the global struct */
     globalInfo.pools = poolInfo
+    globalInfo.warned = false
+
     populateHeights()
     updateMedianHeight()
 
@@ -184,6 +192,141 @@ func getClaims() (map[string]string, error) {
     return claims, nil
 }
 
+func checkForDownedApis(s *discordgo.Session) {
+    msg := fmt.Sprintf("```It looks like some pools api's have gone " +
+                       "down!\nMedian pool height: %d\n\n", 
+                       globalInfo.medianHeight)
+
+    poolOwners := make([]string, 0)
+    sendMessage := false
+
+    for index, _ := range globalInfo.pools {
+        v := &globalInfo.pools[index]
+
+        if ((v.height > globalInfo.medianHeight +
+                        poolMaxDifference ||
+             v.height < globalInfo.medianHeight -
+                        poolMaxDifference) &&
+             v.height != 0) {
+            /* Maybe their api momentarily went down or something, don't
+               instantly ping */
+            if v.heightFailCounter <= 2 {
+                v.heightFailCounter++
+            /* Only warn the user once */
+            } else if !v.warnedApi {
+                sendMessage = true;
+                v.warnedHeight = true
+
+                msg += fmt.Sprintf("%-25s %d\n", v.url, v.height)
+
+                if v.claimed {
+
+                    alreadyExists := false
+
+                    for _, owner := range poolOwners {
+                        if owner == v.userID {
+                            alreadyExists = true
+                        }
+                    }
+
+                    /* Don't multi add the username if they own multiple 
+                       pools */
+                    if !alreadyExists {
+                        poolOwners = append(poolOwners, v.userID)
+                    }
+                }
+            }
+        } else {
+            v.heightFailCounter = 0
+            v.warnedHeight = false
+        }
+    }
+
+    msg += "```"
+
+    if sendMessage {
+        for _, owner := range poolOwners {
+            msg += fmt.Sprintf("<@%s> ", owner)
+        }
+
+        s.ChannelMessageSend(poolsChannel, msg)
+    }
+}
+
+func checkForBehindChains(s *discordgo.Session) {
+    msg := fmt.Sprintf("```It looks like some pools are stuck, " +
+                       "forked, or behind!\nMedian pool height: %d\n\n", 
+                       globalInfo.medianHeight)
+
+    poolOwners := make([]string, 0)
+    sendMessage := false
+
+    for index, _ := range globalInfo.pools {
+        v := &globalInfo.pools[index]
+
+        if v.height == 0 {
+            /* Maybe their api momentarily went down or something, don't
+               instantly ping */
+            if v.apiFailCounter <= 2 {
+                v.apiFailCounter++
+            /* Only warn the user once */
+            } else if !v.warnedApi {
+                sendMessage = true;
+                v.warnedApi = true
+
+                msg += fmt.Sprintf("%-25s %d\n", v.url, v.height)
+
+                if v.claimed {
+
+                    alreadyExists := false
+
+                    for _, owner := range poolOwners {
+                        if owner == v.userID {
+                            alreadyExists = true
+                        }
+                    }
+
+                    /* Don't multi add the username if they own multiple 
+                       pools */
+                    if !alreadyExists {
+                        poolOwners = append(poolOwners, v.userID)
+                    }
+                }
+            }
+        } else {
+            v.apiFailCounter = 0
+            v.warnedApi = false
+        }
+    }
+
+    msg += "```"
+
+    if sendMessage {
+        for _, owner := range poolOwners {
+            msg += fmt.Sprintf("<@%s> ", owner)
+        }
+
+        s.ChannelMessageSend(poolsChannel, msg)
+    }
+
+}
+
+func checkForStuckChain(s *discordgo.Session) {
+    timeSinceLastBlock := time.Since(globalInfo.heightLastUpdated)
+
+    /* Alert if the chain has been stuck for longer than 5 minutes */
+    if timeSinceLastBlock > (time.Minute * 5) {
+        s.ChannelMessageSend(poolsChannel,
+                             fmt.Sprintf("It looks like the chain is " +
+                                         "stuck! The last block was " +
+                                         "found %d minutes ago!", 
+                                         int(timeSinceLastBlock.Minutes())))
+        globalInfo.warned = true
+    } else {
+        globalInfo.warned = false
+    }
+}
+
 func heightWatcher(s *discordgo.Session) {
     for {
         time.Sleep(poolRefreshRate)
@@ -191,62 +334,9 @@ func heightWatcher(s *discordgo.Session) {
         populateHeights()
         updateMedianHeight()
 
-        sendMessage := false
-
-        poolOwners := make([]string, 0)
-
-        msg := fmt.Sprintf("```It looks like some pools are stuck, forked, " +
-                           "or behind!\nMedian pool height: %d\n\n", 
-                           globalInfo.medianHeight)
-
-        for index, _ := range globalInfo.pools {
-            v := &globalInfo.pools[index]
-
-            if v.height > globalInfo.medianHeight + poolMaxDifference ||
-               v.height < globalInfo.medianHeight - poolMaxDifference {
-                /* Maybe their api momentarily went down or something, don't
-                   instantly ping */
-                if v.failCounter <= 0 {
-                    v.failCounter++
-                    /* Only warn the user once */
-                } else if !v.warned {
-                    sendMessage = true;
-
-                    v.warned = true
-                    msg += fmt.Sprintf("%-25s %d\n", v.url, v.height)
-
-                    if v.claimed {
-
-                        alreadyExists := false
-
-                        for _, owner := range poolOwners {
-                            if owner == v.userID {
-                                alreadyExists = true
-                            }
-                        }
-
-                        /* Don't multi add the username if they own multiple 
-                           pools */
-                        if !alreadyExists {
-                            poolOwners = append(poolOwners, v.userID)
-                        }
-                    }
-                }
-            } else {
-                v.failCounter = 0
-                v.warned = false
-            }
-        }
-
-        msg += "```"
-
-        if sendMessage {
-            for _, owner := range poolOwners {
-                msg += fmt.Sprintf("<@%s> ", owner)
-            }
-
-            s.ChannelMessageSend(poolsChannel, msg)
-        }
+        checkForStuckChain(s)
+        checkForBehindChains(s)
+        checkForDownedApis(s)
     }
 }
 
@@ -280,16 +370,21 @@ func poolUpdater() {
                 p.claimed = false
             }
 
-            p.failCounter = 0
-            p.warned = false
+            p.apiFailCounter = 0
+            p.heightFailCounter = 0
+
+            p.warnedApi = false
+            p.warnedHeight = false
 
             poolInfo = append(poolInfo, p)
 
             /* Update it with the local pool info if it exists */
             for _, localPool := range globalInfo.pools {
                 if p.url == localPool.url {
-                    p.failCounter = localPool.failCounter
-                    p.warned = localPool.warned
+                    p.heightFailCounter = localPool.heightFailCounter
+                    p.apiFailCounter = localPool.apiFailCounter
+                    p.warnedApi = localPool.warnedApi
+                    p.warnedHeight = localPool.warnedHeight
                     p.height = localPool.height
                     break
                 }
@@ -329,7 +424,8 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
                    ".heights        Display the heights of all known pools\n" +
                    ".height         Display the median height of all pools\n" +
                    ".height <pool>  Display the height of <pool>\n" +
-                   ".claim <pool>   Claim the pool <pool> as your pool```")
+                   ".claim <pool>   Claim the pool <pool> as your pool so " +
+                                   "you can be sent notifications```")
 
 
         s.ChannelMessageSend(m.ChannelID, helpCommand)
