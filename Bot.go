@@ -203,11 +203,7 @@ func checkForDownedApis(s *discordgo.Session) {
     for index, _ := range globalInfo.pools {
         v := &globalInfo.pools[index]
 
-        if ((v.height > globalInfo.medianHeight +
-                        poolMaxDifference ||
-             v.height < globalInfo.medianHeight -
-                        poolMaxDifference) &&
-             v.height != 0) {
+        if v.height == 0 {
             /* Maybe their api momentarily went down or something, don't
                instantly ping */
             if v.heightFailCounter <= 2 {
@@ -264,7 +260,11 @@ func checkForBehindChains(s *discordgo.Session) {
     for index, _ := range globalInfo.pools {
         v := &globalInfo.pools[index]
 
-        if v.height == 0 {
+        if ((v.height > globalInfo.medianHeight +
+                        poolMaxDifference ||
+             v.height < globalInfo.medianHeight -
+                        poolMaxDifference) &&
+             v.height != 0) {
             /* Maybe their api momentarily went down or something, don't
                instantly ping */
             if v.apiFailCounter <= 2 {
