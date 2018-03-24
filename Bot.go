@@ -18,6 +18,7 @@ import (
     "time"
     "compress/flate"
     "bytes"
+    "crypto/tls"
 )
 
 const poolsJSON string = "https://raw.githubusercontent.com/turtlecoin/" +
@@ -622,6 +623,9 @@ func populateHeights() {
 
 func getPoolHeightAndTimestamp (apiURL string) (int, int64, error) {
     statsURL := apiURL + "stats"
+
+    http.DefaultTransport.(*http.Transport).TLSClientConfig = 
+        &tls.Config{InsecureSkipVerify: true}
 
     resp, err := http.Get(statsURL)
 
