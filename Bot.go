@@ -759,11 +759,11 @@ func startup() (*discordgo.Session, error) {
 func getToken() (string, error) {
     file, err := os.Open("token.txt")
 
-    defer file.Close()
-
     if err != nil {
         return "", err
     }
+
+    defer file.Close()
 
     reader := bufio.NewReader(file)
 
