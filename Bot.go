@@ -341,8 +341,9 @@ func checkForBehindChains(s *discordgo.Session) {
 func checkForStuckChain(s *discordgo.Session) {
     timeSinceLastBlock := time.Since(globalInfo.heightLastUpdated)
 
-    /* Alert if the chain has been stuck for longer than 5 minutes */
-    if timeSinceLastBlock > (time.Minute * 5) {
+    /* Alert if the chain has been stuck for longer than 5 minutes, only
+       warn once though */
+    if timeSinceLastBlock > (time.Minute * 5) && !globalInfo.warned {
         s.ChannelMessageSend(poolsChannel,
                              fmt.Sprintf("It looks like the chain is " +
                                          "stuck! The last block was " +
@@ -350,7 +351,7 @@ func checkForStuckChain(s *discordgo.Session) {
                                          int(timeSinceLastBlock.Minutes())))
         globalInfo.warned = true
     /* We have already warned, so print out a recovery message */
-    } else if globalInfo.warned{
+    } else if globalInfo.warned {
         globalInfo.warned = false
         s.ChannelMessageSend(poolsChannel,
                              fmt.Sprintf("The chain appears to have " +
