@@ -310,7 +310,8 @@ func checkForBehindChains(s *discordgo.Session) {
                     }
                 }
             }
-        } else {
+        /* Don't print recover message if api has gone down as well */
+        } else if v.height != 0 {
             if v.warnedHeight {
                 sendRecoverMessage = true
                 recoverMsg += fmt.Sprintf("%-25s %d\n", v.url, v.height)
