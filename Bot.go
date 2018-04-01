@@ -26,7 +26,7 @@ const poolsJSON string = "https://raw.githubusercontent.com/turtlecoin/" +
 
 /* You will need to change this to the channel ID of the pools channel. To
    get this, go here - https://stackoverflow.com/a/41515544/8737306 */
-const poolsChannel string = "426881205263269900"
+const poolsChannel string = "389208387457515520"
 
 /* The amount of blocks a pool can vary from the others before we notify */
 const poolMaxDifference int = 5
