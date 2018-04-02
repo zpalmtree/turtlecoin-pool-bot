@@ -440,6 +440,43 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
         return
     }
 
+    channel, err := s.Channel(m.ChannelID)
+
+    if err != nil {
+        fmt.Println("Failed to get channel! Error:", err)
+        return
+    }
+
+    member, err := s.GuildMember(channel.GuildID, m.Author.ID)
+
+    if err != nil {
+        fmt.Println("Failed to get guild member! Error:", err)
+        return
+    }
+
+    isColouredName := false
+
+    for _, v := range member.Roles {
+        role, err := s.State.Role(channel.GuildID, v)
+
+        if err != nil {
+            fmt.Println("Failed to get role! Error:", err)
+            return
+        }
+
+        if role.Name == "NINJA" || role.Name == "dev-turtle" ||
+           role.Name == "helper" || role.Name == "FOOTCLAN" ||
+           role.Name == "contributor" || role.Name == "guerilla" {
+            isColouredName = true
+            break
+        }
+    }
+
+    /* Only allowed privileged users or those in pools channel to use bot */
+    if !isColouredName && m.ChannelID != poolsChannel {
+        return
+    }
+
     if m.Content == ".heights" {
         heightsPretty := "```\nPool                      Height     Block " +
                          "Last Found\n\n"
@@ -766,6 +803,8 @@ func startup() (*discordgo.Session, error) {
         fmt.Println("Error opening connection! Error:", err)
         return discord, err
     }
+
+    discord.StateEnabled = true
 
     fmt.Println("Connected to discord!")
 
