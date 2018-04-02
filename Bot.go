@@ -440,11 +440,6 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
         return
     }
 
-    /* Only send messages in the pool channel */
-    if m.ChannelID != poolsChannel {
-        return
-    }
-
     if m.Content == ".heights" {
         heightsPretty := "```\nPool                      Height     Block " +
                          "Last Found\n\n"
@@ -521,56 +516,73 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
     }
 
     if m.Content == ".claim" {
-        s.ChannelMessageSend(m.ChannelID,
-                             "You must specify a pool to claim!\nType " +
-                             "`.heights` to list all pools.")
+        if m.ChannelID == poolsChannel {
+            s.ChannelMessageSend(m.ChannelID,
+                                 "You must specify a pool to claim!\nType " +
+                                 "`.heights` to list all pools.")
+
+        } else {
+            s.ChannelMessageSend(m.ChannelID,
+                                 "You can only use this command in the " +
+                                 "#pools channel!")
+        }
 
         return
     }
 
     if strings.HasPrefix(m.Content, ".claim") {
-        message := strings.TrimPrefix(m.Content, ".claim")
-        message = message[1:]
+        if m.ChannelID == poolsChannel {
+            message := strings.TrimPrefix(m.Content, ".claim")
+            message = message[1:]
 
-        for index, _ := range globalInfo.pools {
-            v := &globalInfo.pools[index]
+            for index, _ := range globalInfo.pools {
+                v := &globalInfo.pools[index]
 
-            if v.url == message {
-                /* Pool has already been claimed */
-                if v.claimed {
-                    user, err := s.User(v.userID)
+                if v.url == message {
+                    /* Pool has already been claimed */
+                    if v.claimed {
+                        user, err := s.User(v.userID)
 
-                    if err != nil {
-                        fmt.Println("Couldn't find user! Error:", err)
+                        if err != nil {
+                            fmt.Println("Couldn't find user! Error:", err)
+                            return
+                        }
+
+                        s.ChannelMessageSend(m.ChannelID,
+                                             fmt.Sprintf("%s has already " +
+                                                         "been claimed by %s!", 
+                                                         v.url,
+                                                         user.Username))
+                        
+                        return
+                    /* Otherwise insert into the map */
+                    } else {
+                        v.claimed = true
+                        v.userID = m.Author.ID
+                        
+                        s.ChannelMessageSend(m.ChannelID,
+                                             fmt.Sprintf("You have claimed %s!", 
+                                                         v.url))
+
+                        writeClaims()
+
                         return
                     }
-
-                    s.ChannelMessageSend(m.ChannelID,
-                                         fmt.Sprintf("%s has already been " +
-                                                     "claimed by %s!", v.url,
-                                                     user.Username))
-                    
-                    return
-                /* Otherwise insert into the map */
-                } else {
-                    v.claimed = true
-                    v.userID = m.Author.ID
-                    
-                    s.ChannelMessageSend(m.ChannelID,
-                                         fmt.Sprintf("You have claimed %s!", 
-                                                     v.url))
-
-                    writeClaims()
-
-                    return
                 }
             }
-        }
 
-        s.ChannelMessageSend(m.ChannelID,
-                             fmt.Sprintf("Could find pool %s - type " +
-                                         "`.heights` to view all known pools.",
-                                         message))
+            s.ChannelMessageSend(m.ChannelID,
+                                 fmt.Sprintf("Could find pool %s - type " +
+                                             "`.heights` to view all known " +
+                                             "pools.", message))
+
+            return
+        } else {
+            s.ChannelMessageSend(m.ChannelID,
+                                 "You can only use this command in the " +
+                                 "#pools channel!")
+
+        }
 
         return
     }
