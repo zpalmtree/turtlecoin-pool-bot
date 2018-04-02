@@ -466,7 +466,8 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
         if role.Name == "NINJA" || role.Name == "dev-turtle" ||
            role.Name == "helper" || role.Name == "FOOTCLAN" ||
-           role.Name == "contributor" || role.Name == "guerilla" {
+           role.Name == "contributor" || role.Name == "guerilla" ||
+           role.Name == "service operator" {
             isColouredName = true
             break
         }
