@@ -213,11 +213,18 @@ func checkForDownedApis(s *discordgo.Session) {
     for index, _ := range globalInfo.pools {
         v := &globalInfo.pools[index]
 
+        ignore := false
+
         /* Some pools really spam the output. Ignore them. */
         for _, v1 := range ignoredPools {
             if v1 == v.url {
-                continue
+                ignore = true
+                break
             }
+        }
+
+        if ignore {
+            continue
         }
 
         if v.height == 0 {
@@ -293,11 +300,18 @@ func checkForBehindChains(s *discordgo.Session) {
     for index, _ := range globalInfo.pools {
         v := &globalInfo.pools[index]
 
+        ignore := false
+
         /* Some pools really spam the output. Ignore them. */
         for _, v1 := range ignoredPools {
             if v1 == v.url {
-                continue
+                ignore = true
+                break
             }
+        }
+
+        if ignore {
+            continue
         }
 
         if ((v.height > globalInfo.medianHeight +
