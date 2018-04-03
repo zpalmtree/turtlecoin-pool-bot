@@ -510,7 +510,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
         return
     }
 
-    if m.Content == ".heights" {
+    if m.Content == "/heights" {
         heightsPretty := "```\nPool                      Height     Block " +
                          "Last Found\n\n"
 
