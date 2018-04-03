@@ -540,13 +540,13 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
         return
     }
 
-    if m.Content == ".help" {
+    if m.Content == "/help" {
         helpCommand := fmt.Sprintf("```\nAvailable commands:\n\n" +
-                   ".help           Display this help message\n" +
-                   ".heights        Display the heights of all known pools\n" +
-                   ".height         Display the median height of all pools\n" +
-                   ".height <pool>  Display the height of <pool>\n" +
-                   ".claim <pool>   Claim the pool <pool> as your pool so " +
+                   "/help           Display this help message\n" +
+                   "/heights        Display the heights of all known pools\n" +
+                   "/height         Display the median height of all pools\n" +
+                   "/height <pool>  Display the height of <pool>\n" +
+                   "/claim <pool>   Claim the pool <pool> as your pool so " +
                                    "you can be sent notifications```")
 
 
@@ -555,7 +555,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
         return
     }
 
-    if m.Content == ".height" {
+    if m.Content == "/height" {
         s.ChannelMessageSend(m.ChannelID, 
                              fmt.Sprintf("```Median pool height:\n\n%d```", 
                                          globalInfo.medianHeight))
@@ -563,8 +563,8 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
         return
     }
 
-    if strings.HasPrefix(m.Content, ".height") {
-        message := strings.TrimPrefix(m.Content, ".height")
+    if strings.HasPrefix(m.Content, "/height") {
+        message := strings.TrimPrefix(m.Content, "/height")
         /* Remove first char - probably a space but should make sure */
         message = message[1:]
 
@@ -579,17 +579,17 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
         s.ChannelMessageSend(m.ChannelID,
                              fmt.Sprintf("Couldn't find pool %s - type " +
-                                         "`.heights` to view all known pools.",
+                                         "`/heights` to view all known pools.",
                                          message))
 
         return
     }
 
-    if m.Content == ".claim" {
+    if m.Content == "/claim" {
         if m.ChannelID == poolsChannel {
             s.ChannelMessageSend(m.ChannelID,
                                  "You must specify a pool to claim!\nType " +
-                                 "`.heights` to list all pools.")
+                                 "`/heights` to list all pools.")
 
         } else {
             s.ChannelMessageSend(m.ChannelID,
@@ -600,9 +600,9 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
         return
     }
 
-    if strings.HasPrefix(m.Content, ".claim") {
+    if strings.HasPrefix(m.Content, "/claim") {
         if m.ChannelID == poolsChannel {
-            message := strings.TrimPrefix(m.Content, ".claim")
+            message := strings.TrimPrefix(m.Content, "/claim")
             message = message[1:]
 
             for index, _ := range globalInfo.pools {
