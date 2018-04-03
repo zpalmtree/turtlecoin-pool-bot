@@ -200,11 +200,11 @@ func getClaims() (map[string]string, error) {
 
 func checkForDownedApis(s *discordgo.Session) {
     downMsg := fmt.Sprintf("```It looks like some pools api's have gone " +
-                           "down! Median pool height: %d\n", 
+                           "down!\nMedian pool height: %d\n\n", 
                             globalInfo.medianHeight)
 
-    recoverMsg := fmt.Sprintf("```Some pools api's have recovered! Median " +
-                              "pool height: %d\n", globalInfo.medianHeight)
+    recoverMsg := fmt.Sprintf("```Some pools api's have recovered!\nMedian " +
+                              "pool height: %d\n\n", globalInfo.medianHeight)
 
     poolOwners := make([]string, 0)
     sendDownMessage := false
@@ -286,11 +286,11 @@ func checkForDownedApis(s *discordgo.Session) {
 
 func checkForBehindChains(s *discordgo.Session) {
     downMsg := fmt.Sprintf("```It looks like some pools are stuck, " +
-                           "forked, or behind! Median pool height: %d\n", 
+                           "forked, or behind!\nMedian pool height: %d\n\n", 
                             globalInfo.medianHeight)
 
-    recoverMsg := fmt.Sprintf("```Some pools have recovered! Median pool " +
-                              "height: %d\n", globalInfo.medianHeight)
+    recoverMsg := fmt.Sprintf("```Some pools have recovered!\nMedian pool " +
+                              "height: %d\n\n", globalInfo.medianHeight)
 
     poolOwners := make([]string, 0)
 
