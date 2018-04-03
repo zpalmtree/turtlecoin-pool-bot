@@ -18,7 +18,7 @@ This bot hangs out in your discord server, and lets you know if mining pools are
 * Next you need to get the Channel ID you want the bot to run in.
 * In Discord, follow these steps-
 
-   1. Click on `User Settings`(small gear icon to right of name in the bottonm left) 
+   1. Click on `User Settings`(small gear icon to right of name in the bottom left) 
    
    2. Click on `Appearance` 
    
