@@ -26,7 +26,7 @@ const poolsJSON string = "https://raw.githubusercontent.com/turtlecoin/" +
 
 /* You will need to change this to the channel ID of the pools channel. To
    get this, go here - https://stackoverflow.com/a/41515544/8737306 */
-const poolsChannel string = "389208387457515520"
+const poolsChannel string = "430779541921726465"
 
 /* The amount of blocks a pool can vary from the others before we notify */
 const poolMaxDifference int = 5
@@ -505,7 +505,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
         }
     }
 
-    /* Only allowed privileged users or those in pools channel to use bot */
+    /* Only allowed privileged users or those in stats channel to use bot */
     if !isColouredName && m.ChannelID != poolsChannel {
         return
     }
@@ -594,7 +594,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
         } else {
             s.ChannelMessageSend(m.ChannelID,
                                  "You can only use this command in the " +
-                                 "#pools channel!")
+                                 "#stats channel!")
         }
 
         return
@@ -650,7 +650,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
         } else {
             s.ChannelMessageSend(m.ChannelID,
                                  "You can only use this command in the " +
-                                 "#pools channel!")
+                                 "#stats channel!")
 
         }
 
