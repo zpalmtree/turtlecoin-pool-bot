@@ -34,6 +34,10 @@ const poolMaxDifference int = 5
 /* How often we check the pools */
 const poolRefreshRate time.Duration = time.Second * 30
 
+/* We ignore some pools from the forked/api down message because they are
+   constantly up and down and are quite noisy */
+var ignoredPools = []string { "turtle.coolmining.club" }
+
 /* The data type we parse our json into */
 type Pool struct {
     Api string `json:"url"`
@@ -209,6 +213,13 @@ func checkForDownedApis(s *discordgo.Session) {
     for index, _ := range globalInfo.pools {
         v := &globalInfo.pools[index]
 
+        /* Some pools really spam the output. Ignore them. */
+        for _, v1 := range ignoredPools {
+            if v1 == v.url {
+                continue
+            }
+        }
+
         if v.height == 0 {
             /* Maybe their api momentarily went down or something, don't
                instantly ping */
@@ -281,6 +292,13 @@ func checkForBehindChains(s *discordgo.Session) {
 
     for index, _ := range globalInfo.pools {
         v := &globalInfo.pools[index]
+
+        /* Some pools really spam the output. Ignore them. */
+        for _, v1 := range ignoredPools {
+            if v1 == v.url {
+                continue
+            }
+        }
 
         if ((v.height > globalInfo.medianHeight +
                         poolMaxDifference ||
