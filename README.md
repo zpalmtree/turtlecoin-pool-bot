@@ -43,8 +43,9 @@ This bot hangs out in your discord server, and lets you know if mining pools are
 
 There are a few commands once the bot is running:
 
-* .help - Display the help message
-* .heights - Display the heights of all known pools
-* .height - Display the median height
-* .height \<pool\> - Display the height of \<pool\>
-* .claim \<pool\> - Claim the pool \<pool\> as your pool so you can be sent notifications
+* /help - Display the help message
+* /heights - Display the heights of all known pools
+* /status - An alias for /heights
+* /height - Display the median height
+* /height \<pool\> - Display the height of \<pool\>
+* /claim \<pool\> - Claim the pool \<pool\> as your pool so you can be sent notifications
