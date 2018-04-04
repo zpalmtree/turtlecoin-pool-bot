@@ -597,9 +597,15 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
                 status = "Forked"
             }
 
-            heightsPretty += fmt.Sprintf("%-30s %-11d%-11s%s ago\n", v.url,
+            lastFound = formatTime(v.timeLastFound)
+
+            if lastFound != "Never" {
+                lastFound += " ago"
+            }
+
+            heightsPretty += fmt.Sprintf("%-30s %-11d%-11s%s\n", v.url,
                                          v.height, status,
-                                         formatTime(v.timeLastFound))
+                                         lastFound)
         }
 
         heightsPretty += "```"
