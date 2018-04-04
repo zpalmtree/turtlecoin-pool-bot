@@ -25,10 +25,10 @@ const poolsJSON string = "https://raw.githubusercontent.com/turtlecoin/" +
 
 /* You will need to change this to the channel ID of the pools channel. To
    get this, go here - https://stackoverflow.com/a/41515544/8737306 */
-//const poolsChannel string = "430779541921726465"
+const poolsChannel string = "430779541921726465"
 
 /* test channel */
-const poolsChannel string = "426881205263269900"
+//const poolsChannel string = "426881205263269900"
 
 /* The amount of blocks a pool can vary from the others before we notify */
 const poolMaxDifference int = 5
@@ -244,7 +244,7 @@ func printStatus(s *discordgo.Session) {
 
         name := v.url
 
-        /* Bold the pools that caused the list to change */
+        /* Highlight the pools that caused the list to change */
         if v.recovered || !v.pinged {
             name = fmt.Sprintf("*%s", v.url)
         }
