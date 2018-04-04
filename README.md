@@ -50,3 +50,4 @@ There are a few commands once the bot is running:
 * /height \<pool\> - Display the height of \<pool\>
 * /forked - Display any forked pools
 * /watch \<pool\> - Watch the pool \<pool\> so you can be sent notifications
+* /unwatch \<pool\> - Stop watching the pool \<pool\> so you are no longer send notifications

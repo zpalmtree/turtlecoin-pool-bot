@@ -48,7 +48,7 @@ type Pool struct {
 /* Map of pool name to pool api */
 type Pools map[string]Pool
 
-/* Info about every pool */
+/* Info about every poo */
 type PoolsInfo struct {
     pools               []PoolInfo
     modeHeight          int
@@ -214,6 +214,23 @@ func elem(needle string, haystack []string) bool {
     }
 
     return false
+}
+
+func deleteElem(needle string, haystack []string) []string {
+    i := -1
+
+    for index, v := range haystack {
+        if v == needle {
+            i = index
+            break
+        }
+    }
+
+    if i != -1 {
+        haystack = append(haystack[:i], haystack[i+1:]...)
+    }
+
+    return haystack
 }
 
 func printStatus(s *discordgo.Session) {
@@ -560,7 +577,9 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
                    "/height <pool>  Display the height of <pool>\n" +
                    "/forked         Display any forked pools\n" +
                    "/watch <pool>   Watch the pool <pool> so you can be " +
-                                   "sent notifications```")
+                                   "sent notifications\n" +
+                   "/unwatch <pool> Stop watching the pool <pool> so you no" +
+                                   "longer get sent notifications```")
 
         s.ChannelMessageSend(m.ChannelID, helpCommand)
 
@@ -642,7 +661,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
             }
 
             s.ChannelMessageSend(m.ChannelID,
-                                 fmt.Sprintf("Could find pool %s - type " +
+                                 fmt.Sprintf("Couldn't find pool %s - type " +
                                              "`/heights` to view all known " +
                                              "pools.", message))
 
@@ -652,6 +671,53 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
                                  "You can only use this command in the " +
                                  "#stats channel!")
 
+        }
+
+        return
+    }
+
+    if strings.HasPrefix(m.Content, "/unwatch") {
+        if m.ChannelID == poolsChannel {
+            message := strings.TrimPrefix(m.Content, "/unwatch")
+            message = message[1:]
+
+            for index, _ := range globalInfo.pools {
+                v := &globalInfo.pools[index]
+
+                if v.url == message {
+                    if elem(m.Author.ID, v.claimees) {
+                        s.ChannelMessageSend(m.ChannelID,
+                                             fmt.Sprintf("You are no longer" +
+                                                         "watching %s!",
+                                                         v.url))
+
+                        v.claimees = deleteElem(m.Author.ID, v.claimees)
+
+                        writeClaims()
+
+                        return
+                    } else {
+                        s.ChannelMessageSend(m.ChannelID,
+                                             fmt.Sprintf("You are not " +
+                                                         "watching %s!",
+                                                         v.url))
+                        
+                        return
+                    }
+                }
+            }
+
+            s.ChannelMessageSend(m.ChannelID,
+                                 fmt.Sprintf("Couldn't find pool %s - type " +
+                                             "`/heights` to view all known " +
+                                             "pools.", message))
+
+            return
+
+        } else {
+            s.ChannelMessageSend(m.ChannelID,
+                                 "You can only use this command in the " +
+                                 "#stats channel!")
         }
 
         return
