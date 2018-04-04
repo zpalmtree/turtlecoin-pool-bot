@@ -25,10 +25,10 @@ const poolsJSON string = "https://raw.githubusercontent.com/turtlecoin/" +
 
 /* You will need to change this to the channel ID of the pools channel. To
    get this, go here - https://stackoverflow.com/a/41515544/8737306 */
-const poolsChannel string = "430779541921726465"
+//const poolsChannel string = "430779541921726465"
 
 /* test channel */
-//const poolsChannel string = "426881205263269900"
+const poolsChannel string = "426881205263269900"
 
 /* The amount of blocks a pool can vary from the others before we notify */
 const poolMaxDifference int = 5
@@ -66,6 +66,7 @@ type PoolInfo struct {
     warnedApi           bool
     warnedHeight        bool
     pinged              bool
+    recovered           bool
     timeLastFound       time.Time
     timeStuck           time.Time
 }
@@ -129,6 +130,7 @@ func setup() error {
         p.warnedApi = false
         p.warnedHeight = false
         p.pinged = false
+        p.recovered = false
 
         poolInfo = append(poolInfo, p)
     }
@@ -227,18 +229,29 @@ func printStatus(s *discordgo.Session) {
     for index, _ := range globalInfo.pools {
         v := &globalInfo.pools[index]
 
-        if v.height <= globalInfo.modeHeight + poolMaxDifference &&
-           v.height >= globalInfo.modeHeight - poolMaxDifference {
-            continue
-        }
-
-        status := "Forked"
+        status := ""
 
         if v.height == 0 {
             status = "Api down"
+        } else if v.height > globalInfo.modeHeight + poolMaxDifference ||
+           v.height < globalInfo.modeHeight - poolMaxDifference {
+            status = "Forked"
+        } else if v.recovered {
+            status = "Recovered"
+        } else {
+            continue
         }
 
-        msg += fmt.Sprintf("%-26s %-11d%-11s%-21s%s\n", v.url, v.height, 
+        name := v.url
+
+        /* Bold the pools that caused the list to change */
+        if v.recovered || !v.pinged {
+            name = fmt.Sprintf("*%s", v.url)
+        }
+
+        v.recovered = false
+
+        msg += fmt.Sprintf("%-26s %-11d%-11s%-21s%s\n", name, v.height, 
                            status, formatTime(v.timeLastFound) + " ago",
                            formatTime(v.timeStuck))
 
@@ -284,6 +297,7 @@ func checkForApiIssues(v *PoolInfo) bool {
         /* Recovered, reprint message */
         if v.warnedApi {
             v.warnedApi = false
+            v.recovered = true
             return true
         }
     }
@@ -306,6 +320,7 @@ func checkForHeightIssues(v *PoolInfo) bool {
         /* Recovered, reprint message */
         if v.warnedHeight {
             v.warnedHeight = false
+            v.recovered = true
             return true
         }
     }
@@ -424,6 +439,7 @@ func poolUpdater() {
                     p.warnedApi = localPool.warnedApi
                     p.warnedHeight = localPool.warnedHeight
                     p.pinged = localPool.pinged
+                    p.recovered = localPool.recovered
                     p.height = localPool.height
                     p.timeLastFound = localPool.timeLastFound
                     p.timeStuck = localPool.timeStuck
