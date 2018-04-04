@@ -16,19 +16,20 @@ import (
     "errors"
     "time"
     "compress/flate"
+    "compress/gzip"
     "bytes"
     "crypto/tls"
 )
 
 const poolsJSON string = "https://raw.githubusercontent.com/turtlecoin/" +
-                         "turtlecoin-pools-json/master/turtlecoin-pools.json"
+                         "turtlecoin-pools-json/master/v2/turtlecoin-pools.json"
 
 /* You will need to change this to the channel ID of the pools channel. To
    get this, go here - https://stackoverflow.com/a/41515544/8737306 */
-const poolsChannel string = "430779541921726465"
+//const poolsChannel string = "430779541921726465"
 
 /* test channel */
-//const poolsChannel string = "426881205263269900"
+const poolsChannel string = "426881205263269900"
 
 /* The amount of blocks a pool can vary from the others before we notify */
 const poolMaxDifference int = 5
@@ -42,11 +43,14 @@ var ignoredPools = []string { /* "turtle.coolmining.club" */ }
 
 /* The data type we parse our json into */
 type Pool struct {
-    Api string `json:"url"`
+    Url     string `json:"url"`
+    Api     string `json:"api"`
+    Type    string `json:"type"`
 }
 
-/* Map of pool name to pool api */
-type Pools map[string]Pool
+type Pools struct {
+    Pools   []Pool `json:"pools"`
+}
 
 /* Info about every poo */
 type PoolsInfo struct {
@@ -79,7 +83,7 @@ func main() {
     if err != nil {
         return
     }
-    
+
     discord, err := startup()
     
     if err != nil {
@@ -115,9 +119,15 @@ func setup() error {
     poolInfo := make([]PoolInfo, 0)
 
     /* Populate each pool with their info */
-    for url, pool := range pools {
+    for _, pool := range pools.Pools {
         var p PoolInfo
-        p.url = url
+        trimmed := pool.Url
+
+        trimmed = strings.TrimPrefix(trimmed, "https://")
+        trimmed = strings.TrimPrefix(trimmed, "http://")
+        trimmed = strings.TrimSuffix(trimmed, "/")
+
+        p.url = trimmed
         p.api = pool.Api
 
         /* Has the pool been claimed */
@@ -240,12 +250,19 @@ func printStatus(s *discordgo.Session) {
 func printStatusFull(s *discordgo.Session, channel string) {
     pingees := make([]string, 0)
 
+    lastFound := formatTime(globalInfo.heightLastUpdated)
+
+    /* Never ago! */
+    if lastFound != "Never" {
+        lastFound += " ago"
+    }
+
     msg := fmt.Sprintf("```Median pool height: %d\n" +
-                       "Block Last Found: %s ago\n\n" +
-                       "Currently Downed Pools     Height     " +
+                       "Block Last Found: %s\n\n" +
+                       "Currently Downed Pools         Height     " +
                        "Status     Block Last Found     Time Stuck\n\n",
                        globalInfo.modeHeight,
-                       formatTime(globalInfo.heightLastUpdated))
+                       lastFound)
 
     for index, _ := range globalInfo.pools {
         v := &globalInfo.pools[index]
@@ -253,7 +270,12 @@ func printStatusFull(s *discordgo.Session, channel string) {
         status := ""
 
         if v.height == 0 {
-            status = "Api down"
+            /* Not failed yet */
+            if v.apiFailCounter <= 2 {
+                continue
+            }
+
+            status = "Api Down"
         } else if v.height > globalInfo.modeHeight + poolMaxDifference ||
            v.height < globalInfo.modeHeight - poolMaxDifference {
             status = "Forked"
@@ -270,10 +292,14 @@ func printStatusFull(s *discordgo.Session, channel string) {
             name = fmt.Sprintf("*%s", v.url)
         }
 
-        v.recovered = false
+        lastFound = formatTime(v.timeStuck)
 
-        msg += fmt.Sprintf("%-26s %-11d%-11s%-21s%s\n", name, v.height, 
-                           status, formatTime(v.timeLastFound) + " ago",
+        if lastFound != "Never" {
+            lastFound += " ago"
+        }
+
+        msg += fmt.Sprintf("%-30s %-11d%-11s%-21s%s\n", name, v.height, 
+                           status, formatTime(v.timeLastFound),
                            formatTime(v.timeStuck))
 
         for _, owner := range v.claimees {
@@ -285,6 +311,7 @@ func printStatusFull(s *discordgo.Session, channel string) {
             }
         }
 
+        v.recovered = false
         v.pinged = true
     }
 
@@ -439,9 +466,15 @@ func poolUpdater() {
         poolInfo := make([]PoolInfo, 0)
 
         /* Populate each pool with their info */
-        for url, pool := range pools {
+        for _, pool := range pools.Pools {
             var p PoolInfo
-            p.url = url
+            trimmed := pool.Url
+
+            trimmed = strings.TrimPrefix(trimmed, "https://")
+            trimmed = strings.TrimPrefix(trimmed, "http://")
+            trimmed = strings.TrimSuffix(trimmed, "/")
+
+            p.url = trimmed
             p.api = pool.Api
 
             /* Has the pool been claimed */
@@ -539,24 +572,32 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
     }
 
     if m.Content == "/heights" || m.Content == "/status" {
+        lastFound := formatTime(globalInfo.heightLastUpdated)
+
+        /* Never ago! */
+        if lastFound != "Never" {
+            lastFound += " ago"
+        }
+
         heightsPretty := fmt.Sprintf("```Median pool height: %d\n" +
-                                     "Block Last Found: %s ago\n\n" +
-                                     "Pool                      Height     " +
+                                     "Block Last Found: %s\n\n" +
+                                     "Pool                           " +
+                                     "Height     " +
                                      "Status     Block Last Found\n\n",
                                      globalInfo.modeHeight,
-                                     formatTime(globalInfo.heightLastUpdated))
+                                     lastFound)
 
         for _, v := range globalInfo.pools {
             status := "Ok"
 
             if v.height == 0 {
-                status = "Api down"
+                status = "Api Down"
             } else if v.height > globalInfo.modeHeight + poolMaxDifference ||
                       v.height < globalInfo.modeHeight - poolMaxDifference {
                 status = "Forked"
             }
 
-            heightsPretty += fmt.Sprintf("%-25s %-11d%-11s%s ago\n", v.url,
+            heightsPretty += fmt.Sprintf("%-30s %-11d%-11s%s ago\n", v.url,
                                          v.height, status,
                                          formatTime(v.timeLastFound))
         }
@@ -792,28 +833,13 @@ func populateHeights() {
     }
 }
 
-func getPoolHeightAndTimestamp (apiURL string) (int, int64, error) {
-    statsURL := apiURL + "stats"
-
-    http.DefaultTransport.(*http.Transport).TLSClientConfig = 
-        &tls.Config{InsecureSkipVerify: true}
-
-    resp, err := http.Get(statsURL)
-
-    if err != nil {
-        fmt.Printf("Failed to download stats from %s! Error: %s\n", 
-                    statsURL, err)
-        return 0, 0, err
-    }
-
-    defer resp.Body.Close()
-
+func getBody (resp *http.Response, statsURL string) ([]byte, error) {
     body, err := ioutil.ReadAll(resp.Body)
 
     if err != nil {
         fmt.Printf("Failed to download stats from %s! Error: %s\n",
                     statsURL, err)
-        return 0, 0, err
+        return nil, err
     }
 
     /* Some servers (Looking at you us.turtlepool.space!) send us deflate'd
@@ -823,15 +849,48 @@ func getPoolHeightAndTimestamp (apiURL string) (int, int64, error) {
 
         if err != nil {
             fmt.Println("Failed to deflate response from", statsURL)
-            return 0, 0, err
+            return nil, err
         }
     }
 
+    /* Some pools like those under the blocks.turtle.link group appear to
+       return multiple values for Content-Encoding, " ", and "gzip" */
+    for k, v := range resp.Header {
+        if k == "Content-Encoding" {
+            for _, v1 := range v {
+                if v1 == "gzip" {
+                    gz, err := gzip.NewReader(bytes.NewReader(body))
+
+                    if err != nil {
+                        fmt.Println("Failed to ungzip response from %s! Error: %s\n",
+                                    statsURL, err)
+                        return nil, err
+                    }
+
+                    defer gz.Close()
+
+                    body, err = ioutil.ReadAll(gz)
+
+                    if err != nil {
+                        fmt.Println("Failed to ungzip response from %s! Error: %s\n",
+                                    statsURL, err)
+                        return nil, err
+                    }
+                    break
+                }
+            }
+        }
+    }
+
+    return body, nil
+}
+
+func parseBody(body string, statsURL string) (int, int64, error) {
     heightRegex := regexp.MustCompile(".*\"height\":(\\d+).*")
     blockFoundRegex := regexp.MustCompile(".*\"lastBlockFound\":\"(\\d+)\".*")
 
-    height := heightRegex.FindStringSubmatch(string(body))
-    blockFound := blockFoundRegex.FindStringSubmatch(string(body))
+    height := heightRegex.FindStringSubmatch(body)
+    blockFound := blockFoundRegex.FindStringSubmatch(body)
 
     if len(height) < 2 {
         fmt.Println("Failed to parse height from", statsURL)
@@ -862,6 +921,43 @@ func getPoolHeightAndTimestamp (apiURL string) (int, int64, error) {
     }
 
     return i, unix, nil
+}
+
+func getPoolHeightAndTimestamp (apiURL string) (int, int64, error) {
+    statsURL := apiURL + "stats"
+
+    http.DefaultTransport.(*http.Transport).TLSClientConfig = 
+        &tls.Config{InsecureSkipVerify: true}
+
+    timeout := time.Duration(5 * time.Second)
+
+    client := http.Client {
+        Timeout: timeout,
+    }
+
+    resp, err := client.Get(statsURL)
+
+    if err != nil {
+        fmt.Printf("Failed to download stats from %s! Error: %s\n", 
+                    statsURL, err)
+        return 0, 0, err
+    }
+
+    defer resp.Body.Close()
+
+    body, err := getBody(resp, statsURL)
+
+    if err != nil {
+        return 0, 0, err
+    }
+
+    height, unix, err := parseBody(string(body), statsURL)
+
+    if err != nil {
+        return 0, 0, err
+    }
+
+    return height, unix, nil
 }
 
 func getPools() (Pools, error) {
