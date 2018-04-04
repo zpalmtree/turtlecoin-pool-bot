@@ -217,6 +217,10 @@ func elem(needle string, haystack []string) bool {
 }
 
 func printStatus(s *discordgo.Session) {
+    printStatusFull(s, poolsChannel)
+}
+
+func printStatusFull(s *discordgo.Session, channel string) {
     pingees := make([]string, 0)
 
     msg := fmt.Sprintf("```Median pool height: %d\n" +
@@ -273,7 +277,7 @@ func printStatus(s *discordgo.Session) {
         msg += fmt.Sprintf("<@%s> ", owner)
     }
 
-    s.ChannelMessageSend(poolsChannel, msg)
+    s.ChannelMessageSend(channel, msg)
 
     return
 }
@@ -553,6 +557,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
                    "/status         An alias for /heights\n" +
                    "/height         Display the median height of all pools\n" +
                    "/height <pool>  Display the height of <pool>\n" +
+                   "/forked         Display any forked pools\n" +
                    "/watch <pool>   Watch the pool <pool> so you can be " +
                                    "sent notifications```")
 
@@ -649,6 +654,10 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
         }
 
         return
+    }
+
+    if m.Content == "/forked" {
+        printStatusFull(s, m.ChannelID)
     }
 }
 

@@ -48,4 +48,5 @@ There are a few commands once the bot is running:
 * /status - An alias for /heights
 * /height - Display the median height
 * /height \<pool\> - Display the height of \<pool\>
+* /forked - Display any forked pools
 * /watch \<pool\> - Watch the pool \<pool\> so you can be sent notifications
