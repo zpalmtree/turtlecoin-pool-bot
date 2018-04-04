@@ -36,7 +36,7 @@ const poolRefreshRate time.Duration = time.Second * 30
 
 /* We ignore some pools from the forked/api down message because they are
    constantly up and down and are quite noisy */
-var ignoredPools = []string { "turtle.coolmining.club" }
+var ignoredPools = []string { /* "turtle.coolmining.club" */ }
 
 /* The data type we parse our json into */
 type Pool struct {
@@ -466,6 +466,22 @@ func poolUpdater() {
     }
 }
 
+func formatTime(when time.Time) string {
+    mins := int(time.Since(when).Minutes())
+    hours := int(time.Since(when).Hours())
+
+    if when.IsZero() {
+        return "Never"
+    } else if mins < 60 {
+        return fmt.Sprintf("%d minutes ago", mins);
+    } else if hours < 24 {
+        return fmt.Sprintf("%d hours ago", hours);
+    } else {
+        return fmt.Sprintf("%d hours ago", int(hours / 24));
+    }
+}
+
+
 func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
     /* Ignore our own messages */
     if m.Author.ID == s.State.User.ID {
@@ -510,27 +526,27 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
         return
     }
 
-    if m.Content == "/heights" {
-        heightsPretty := "```\nPool                      Height     Block " +
-                         "Last Found\n\n"
+    if m.Content == "/heights" || m.Content == "/status" {
+        heightsPretty := fmt.Sprintf("```Median pool height: %d\n" +
+                                     "Block Last Found: %s\n\n" +
+                                     "Pool                      Height     " +
+                                     "Status     Block Last Found\n\n",
+                                     globalInfo.medianHeight,
+                                     formatTime(globalInfo.heightLastUpdated))
 
         for _, v := range globalInfo.pools {
-            mins := int(time.Since(v.timeLastFound).Minutes())
-            hours := int(time.Since(v.timeLastFound).Hours())
+            status := "Ok"
 
-            if v.timeLastFound.IsZero() {
-                heightsPretty += fmt.Sprintf("%-25s %-11dNever\n", 
-                                             v.url, v.height)
-            } else if mins < 60 {
-                heightsPretty += fmt.Sprintf("%-25s %-11d%d minutes ago\n",
-                                             v.url, v.height, mins)
-            } else if hours < 24 {
-                heightsPretty += fmt.Sprintf("%-25s %-11d%d hours ago\n",
-                                             v.url, v.height, hours)
-            } else {
-                heightsPretty += fmt.Sprintf("%-25s %-11d%d days ago\n",
-                                             v.url, v.height, int(hours / 24))
+            if v.height == 0 {
+                status = "Api down"
+            } else if v.height > globalInfo.medianHeight + poolMaxDifference ||
+                      v.height < globalInfo.medianHeight - poolMaxDifference {
+                status = "Forked"
             }
+
+            heightsPretty += fmt.Sprintf("%-25s %-11d%-11s%s\n", v.url,
+                                         v.height, status,
+                                         formatTime(v.timeLastFound))
         }
 
         heightsPretty += "```"
@@ -544,11 +560,11 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
         helpCommand := fmt.Sprintf("```\nAvailable commands:\n\n" +
                    "/help           Display this help message\n" +
                    "/heights        Display the heights of all known pools\n" +
+                   "/status         An alias for /heights\n" +
                    "/height         Display the median height of all pools\n" +
                    "/height <pool>  Display the height of <pool>\n" +
                    "/claim <pool>   Claim the pool <pool> as your pool so " +
                                    "you can be sent notifications```")
-
 
         s.ChannelMessageSend(m.ChannelID, helpCommand)
 
