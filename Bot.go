@@ -528,6 +528,11 @@ func poolUpdater() {
 
         /* Update the global struct */
         globalInfo.pools = poolInfo
+
+        sort.Slice(globalInfo.pools, func(i, j int) bool {
+            return globalInfo.pools[i].url < globalInfo.pools[j].url
+        })
+
         populateHeights()
         updateModeHeight()
     }
