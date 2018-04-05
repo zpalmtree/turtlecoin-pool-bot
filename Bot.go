@@ -625,7 +625,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
                    "/forked         Display any forked pools\n" +
                    "/watch <pool>   Watch the pool <pool> so you can be " +
                                    "sent notifications\n" +
-                   "/unwatch <pool> Stop watching the pool <pool> so you no" +
+                   "/unwatch <pool> Stop watching the pool <pool> so you no " +
                                    "longer get sent notifications```")
 
         s.ChannelMessageSend(m.ChannelID, helpCommand)
