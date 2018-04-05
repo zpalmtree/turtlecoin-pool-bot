@@ -73,6 +73,7 @@ type PoolInfo struct {
     recovered           bool
     timeLastFound       time.Time
     timeStuck           time.Time
+    poolType            string
 }
 
 var globalInfo PoolsInfo
@@ -129,6 +130,7 @@ func setup() error {
 
         p.url = trimmed
         p.api = pool.Api
+        p.poolType = pool.Type
 
         /* Has the pool been claimed */
         if val, ok := claims[p.url]; ok {
@@ -476,6 +478,7 @@ func poolUpdater() {
 
             p.url = trimmed
             p.api = pool.Api
+            p.poolType = pool.Type
 
             /* Has the pool been claimed */
             if val, ok := claims[p.url]; ok {
@@ -800,8 +803,6 @@ func updateModeHeight() {
     }
 }
 
-/* Ok, this is actually calculating the mode. Mode pool height just sounds
-   weird */
 func mode(a []int) int {
     m := make(map[int]int)
     for _, v := range a {
@@ -828,7 +829,7 @@ func populateHeights() {
         /* Range takes a copy of the values, we need to directly access */
         v := &globalInfo.pools[index]
 
-        height, unix, err := getPoolHeightAndTimestamp(v.api)
+        height, unix, err := getPoolHeightAndTimestamp(v)
 
         if err == nil {
             v.height = height
@@ -891,28 +892,32 @@ func getBody (resp *http.Response, statsURL string) ([]byte, error) {
     return body, nil
 }
 
-func parseBody(body string, statsURL string) (int, int64, error) {
+func parseHeight(body string, statsURL string) (int, error) {
     heightRegex := regexp.MustCompile(".*\"height\":(\\d+).*")
-    blockFoundRegex := regexp.MustCompile(".*\"lastBlockFound\":\"(\\d+)\".*")
-
     height := heightRegex.FindStringSubmatch(body)
-    blockFound := blockFoundRegex.FindStringSubmatch(body)
 
     if len(height) < 2 {
         fmt.Println("Failed to parse height from", statsURL)
-        return 0, 0, errors.New("Couldn't parse height")
-    }
-
-    if len(blockFound) < 2 {
-        fmt.Println("Failed to parse block last found timestamp from", statsURL)
-        return 0, 0, errors.New("Couldn't parse block timestamp")
+        return 0, errors.New("Couldn't parse height")
     }
 
     i, err := strconv.Atoi(height[1])
 
     if err != nil {
         fmt.Println("Failed to convert height into int! Error:", err)
-        return 0, 0, err
+        return 0, err
+    }
+
+    return i, nil
+}
+
+func parseForknoteBody(body string, statsURL string) (int, int64, error) {
+    blockFoundRegex := regexp.MustCompile(".*\"lastBlockFound\":\"(\\d+)\".*")
+    blockFound := blockFoundRegex.FindStringSubmatch(body)
+
+    if len(blockFound) < 2 {
+        fmt.Println("Failed to parse block last found timestamp from", statsURL)
+        return 0, 0, errors.New("Couldn't parse block timestamp")
     }
 
     str := blockFound[1]
@@ -926,12 +931,32 @@ func parseBody(body string, statsURL string) (int, int64, error) {
         return 0, 0, err
     }
 
+    i, err := parseHeight(body, statsURL)
+
+    if err != nil {
+        return 0, 0, err
+    }
+
     return i, unix, nil
 }
 
-func getPoolHeightAndTimestamp (apiURL string) (int, int64, error) {
-    statsURL := apiURL + "stats"
+func parseForknote(p *PoolInfo) (int, int64, error) {
+    body, err := downloadApiLink(p.api + "stats")
 
+    if err != nil {
+        return 0, 0, err
+    }
+
+    height, unix, err := parseForknoteBody(body, p.api + "stats")
+
+    if err != nil {
+        return 0, 0, err
+    }
+
+    return height, unix, nil
+}
+
+func downloadApiLink(apiURL string) (string, error) {
     http.DefaultTransport.(*http.Transport).TLSClientConfig = 
         &tls.Config{InsecureSkipVerify: true}
 
@@ -941,23 +966,79 @@ func getPoolHeightAndTimestamp (apiURL string) (int, int64, error) {
         Timeout: timeout,
     }
 
-    resp, err := client.Get(statsURL)
+    resp, err := client.Get(apiURL)
 
     if err != nil {
         fmt.Printf("Failed to download stats from %s! Error: %s\n", 
-                    statsURL, err)
-        return 0, 0, err
+                    apiURL, err)
+        return "", err
     }
 
     defer resp.Body.Close()
 
-    body, err := getBody(resp, statsURL)
+    body, err := getBody(resp, apiURL)
+
+    if err != nil {
+        return "", err
+    }
+
+    return string(body), nil
+}
+
+func parseNodeJS(p *PoolInfo) (int, int64, error) {
+    networkURL := p.api + "network/stats"
+    poolURL := p.api + "pool/stats"
+
+    heightBody, err := downloadApiLink(networkURL)
 
     if err != nil {
         return 0, 0, err
     }
 
-    height, unix, err := parseBody(string(body), statsURL)
+    timeBody, err := downloadApiLink(poolURL)
+
+    if err != nil {
+        return 0, 0, err
+    }
+
+    blockFoundRegex := regexp.MustCompile(".*\"lastBlockFoundTime\":(\\d+).*")
+    blockFound := blockFoundRegex.FindStringSubmatch(timeBody)
+
+    if len(blockFound) < 2 {
+        fmt.Println("Failed to parse block last found timestamp from", poolURL)
+        return 0, 0, errors.New("Couldn't parse block timestamp")
+    }
+
+    /* Don't overflow on 32 bit */
+    unix, err := strconv.ParseInt(blockFound[1], 10, 64)
+
+    if err != nil {
+        fmt.Println("Failed to convert timestamp into int! Error:", err)
+        return 0, 0, err
+    }
+
+    i, err := parseHeight(heightBody, networkURL)
+
+    if err != nil {
+        return 0, 0, err
+    }
+
+    return i, unix, nil
+}
+
+func getPoolHeightAndTimestamp (p *PoolInfo) (int, int64, error) {
+    var height int
+    var unix int64
+    var err error
+
+    if p.poolType == "forknote" {
+        height, unix, err = parseForknote(p)
+    } else if p.poolType == "node.js" {
+        height, unix, err = parseNodeJS(p)
+    } else {
+        fmt.Println("Unknown pool type", p.poolType, "skipping.")
+        return 0, 0, errors.New("Unknown pool type")
+    }
 
     if err != nil {
         return 0, 0, err
@@ -992,7 +1073,6 @@ func getPools() (Pools, error) {
 
     return pools, nil
 }
-
 func startup() (*discordgo.Session, error) {
     var discord *discordgo.Session
 
