@@ -2,6 +2,7 @@ package main
 
 import (
     "github.com/bwmarrin/discordgo"
+    "sort"
     "fmt"
     "os"
     "os/signal"
@@ -26,10 +27,10 @@ const poolsJSON string = "https://raw.githubusercontent.com/turtlecoin/" +
 
 /* You will need to change this to the channel ID of the pools channel. To
    get this, go here - https://stackoverflow.com/a/41515544/8737306 */
-const poolsChannel string = "430779541921726465"
+//const poolsChannel string = "430779541921726465"
 
 /* test channel */
-//const poolsChannel string = "426881205263269900"
+const poolsChannel string = "426881205263269900"
 
 /* The amount of blocks a pool can vary from the others before we notify */
 const poolMaxDifference int = 5
@@ -151,6 +152,10 @@ func setup() error {
     globalInfo.pools = poolInfo
     globalInfo.warned = false
 
+    sort.Slice(globalInfo.pools, func(i, j int) bool {
+        return globalInfo.pools[i].url < globalInfo.pools[j].url
+    })
+
     populateHeights()
     updateModeHeight()
 
@@ -266,6 +271,9 @@ func printStatusFull(s *discordgo.Session, channel string) {
                        globalInfo.modeHeight,
                        lastFound)
 
+    justDied := ""
+    alreadyDead := ""
+
     for index, _ := range globalInfo.pools {
         v := &globalInfo.pools[index]
 
@@ -287,11 +295,14 @@ func printStatusFull(s *discordgo.Session, channel string) {
             continue
         }
 
+        newlyDowned := false
+
         name := v.url
 
         /* Highlight the pools that caused the list to change */
         if v.recovered || !v.pinged {
             name = fmt.Sprintf("*%s", v.url)
+            newlyDowned = true
         }
 
         lastFound = formatTime(v.timeStuck)
@@ -300,9 +311,16 @@ func printStatusFull(s *discordgo.Session, channel string) {
             lastFound += " ago"
         }
 
-        msg += fmt.Sprintf("%-30s %-11d%-11s%-21s%s\n", name, v.height, 
-                           status, formatTime(v.timeLastFound),
-                           formatTime(v.timeStuck))
+        addition := fmt.Sprintf("%-30s %-11d%-11s%-21s%s\n", name, v.height, 
+                                status, formatTime(v.timeLastFound),
+                                formatTime(v.timeStuck))
+
+        /* Put the newly downed pools at the start of the message */
+        if newlyDowned {
+            justDied += addition
+        } else {
+            alreadyDead += addition
+        }
 
         for _, owner := range v.claimees {
             /* Don't ping user more than once if they have multiple claims
@@ -317,7 +335,7 @@ func printStatusFull(s *discordgo.Session, channel string) {
         v.pinged = true
     }
 
-    msg += "```"
+    msg += justDied + alreadyDead + "```"
 
     for _, owner := range pingees {
         /* Ping the owners */
