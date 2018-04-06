@@ -49,5 +49,6 @@ There are a few commands once the bot is running:
 * /height - Display the median height
 * /height \<pool\> - Display the height of \<pool\>
 * /forked - Display any forked pools
+* /lastfound - Display time since the last block was found
 * /watch \<pool\> - Watch the pool \<pool\> so you can be sent notifications
 * /unwatch \<pool\> - Stop watching the pool \<pool\> so you are no longer send notifications

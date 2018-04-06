@@ -650,6 +650,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
                    "/height         Display the median height of all pools\n" +
                    "/height <pool>  Display the height of <pool>\n" +
                    "/forked         Display any forked pools\n" +
+                   "/lastfound      Display the time since the last block was found\n" +
                    "/watch <pool>   Watch the pool <pool> so you can be " +
                                    "sent notifications\n" +
                    "/unwatch <pool> Stop watching the pool <pool> so you no " +
@@ -799,6 +800,22 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
     if m.Content == "/forked" {
         printStatusFull(s, m.ChannelID)
+        return
+    }
+
+    if m.Content == "/lastfound" {
+        lastFound := formatTime(globalInfo.heightLastUpdated)
+
+        /* Never ago! */
+        if lastFound != "Never" {
+            lastFound += " ago"
+        }
+
+        s.ChannelMessageSend(m.ChannelID,
+                             fmt.Sprintf("```Block Last Found: %s```",
+                                         lastFound))
+
+        return
     }
 }
 
