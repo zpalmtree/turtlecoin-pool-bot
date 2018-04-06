@@ -323,10 +323,11 @@ func printStatusFull(s *discordgo.Session, channel string) {
         }
 
         for _, owner := range v.claimees {
-            /* Don't ping user more than once if they have multiple claims
-               Only ping them the first time their pool goes down, or on
-               recovery */
-            if (!v.pinged && !elem(owner, pingees)) || v.recovered {
+            /* Ping on first fail, and recovery */
+            shouldPing := !v.pinged || v.recovered
+
+            /* Only ping once */
+            if !elem(owner, pingees) && shouldPing {
                 pingees = append(pingees, owner)
             }
         }
