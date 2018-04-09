@@ -1001,7 +1001,7 @@ func downloadApiLink(apiURL string) (string, error) {
     http.DefaultTransport.(*http.Transport).TLSClientConfig = 
         &tls.Config{InsecureSkipVerify: true}
 
-    timeout := time.Duration(5 * time.Second)
+    timeout := time.Duration(8 * time.Second)
 
     client := http.Client {
         Timeout: timeout,
