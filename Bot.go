@@ -423,7 +423,11 @@ func checkForPoolsWithIssues(s *discordgo.Session) {
            status. Note that we CAN'T break out of the loop yet - the checks
            update the warned boolean, which we need to make sure we only
            reprint the update when something changes */
-        if checkForApiIssues(v) || checkForHeightIssues(v) {
+        if checkForApiIssues(v) {
+            newIssues = true
+        }
+
+        if checkForHeightIssues(v) {
             newIssues = true
         }
     }
