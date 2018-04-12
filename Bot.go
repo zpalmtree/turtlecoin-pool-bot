@@ -305,14 +305,14 @@ func printStatusFull(s *discordgo.Session, channel string) {
             newlyDowned = true
         }
 
-        lastFound = formatTime(v.timeStuck)
+        lastFound = formatTime(v.timeLastFound)
 
         if lastFound != "Never" {
             lastFound += " ago"
         }
 
         addition := fmt.Sprintf("%-30s %-11d%-11s%-21s%s\n", name, v.height, 
-                                status, formatTime(v.timeLastFound),
+                                status, lastFound,
                                 formatTime(v.timeStuck))
 
         /* Put the newly downed pools at the start of the message */
