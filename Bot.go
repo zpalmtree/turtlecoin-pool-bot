@@ -554,7 +554,7 @@ func formatTime(when time.Time) string {
     } else if hours < 24 {
         return fmt.Sprintf("%d hours", hours);
     } else {
-        return fmt.Sprintf("%d hours", int(hours / 24));
+        return fmt.Sprintf("%d days", int(hours / 24));
     }
 }
 
