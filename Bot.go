@@ -266,7 +266,7 @@ func printStatusFull(s *discordgo.Session, channel string) {
 
     msg := fmt.Sprintf("```Median pool height: %d\n" +
                        "Block Last Found: %s\n\n" +
-                       "Currently Downed Pools         Height     " +
+                       "Currently Downed Pools            Height     " +
                        "Status     Block Last Found     Time Stuck\n\n",
                        globalInfo.modeHeight,
                        lastFound)
@@ -311,7 +311,7 @@ func printStatusFull(s *discordgo.Session, channel string) {
             lastFound += " ago"
         }
 
-        addition := fmt.Sprintf("%-30s %-11d%-11s%-21s%s\n", name, v.height, 
+        addition := fmt.Sprintf("%-33s %-11d%-11s%-21s%s\n", name, v.height, 
                                 status, lastFound,
                                 formatTime(v.timeStuck))
 
@@ -612,7 +612,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
         heightsPretty := fmt.Sprintf("```Median pool height: %d\n" +
                                      "Block Last Found: %s\n\n" +
-                                     "Pool                           " +
+                                     "Pool                              " +
                                      "Height     " +
                                      "Status     Block Last Found\n\n",
                                      globalInfo.modeHeight,
@@ -634,7 +634,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
                 lastFound += " ago"
             }
 
-            heightsPretty += fmt.Sprintf("%-30s %-11d%-11s%s\n", v.url,
+            heightsPretty += fmt.Sprintf("%-33s %-11d%-11s%s\n", v.url,
                                          v.height, status,
                                          lastFound)
         }
