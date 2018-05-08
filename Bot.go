@@ -850,9 +850,14 @@ func updateModeHeight() {
 
 func mode(a []int) int {
     m := make(map[int]int)
+
     for _, v := range a {
-        m[v]++
+        /* Skip zero values from api down pools */
+        if v != 0 {
+            m[v]++
+        }
     }
+
     var mode []int
     var n int
     for k, v := range m {
