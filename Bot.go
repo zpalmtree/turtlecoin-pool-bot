@@ -38,6 +38,9 @@ const poolMaxDifference int = 5
 /* How often we check the pools */
 const poolRefreshRate time.Duration = time.Second * 30
 
+/* Discord is limited to 2000 characters in a message */
+const messageLimit = 2000
+
 /* We ignore some pools from the forked/api down message because they are
    constantly up and down and are quite noisy */
 var ignoredPools = []string { /* "turtle.coolmining.club" */ }
@@ -609,7 +612,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
         if lastFound != "Never" {
             lastFound += " ago"
         }
-
+        
         heightsPretty := fmt.Sprintf("```Median pool height: %d\n" +
                                      "Block Last Found: %s\n\n" +
                                      "Pool                              " +
@@ -619,6 +622,15 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
                                      lastFound)
 
         for _, v := range globalInfo.pools {
+
+            /* Message length will exceed discord limit, send what we have so
+               far then continue */
+            if len(heightsPretty) >= messageLimit - 200 {
+                heightsPretty += "```"
+                s.ChannelMessageSend(m.ChannelID, heightsPretty)
+                heightsPretty = "```"
+            }
+
             status := "Ok"
 
             if v.height == 0 {
