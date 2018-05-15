@@ -125,6 +125,11 @@ func setup() error {
 
     /* Populate each pool with their info */
     for _, pool := range pools.Pools {
+        /* Skip non forknote and non nodejs pools */
+        if pool.Type != "forknote" && pool.Type != "node.js" {
+            continue
+        }
+
         var p PoolInfo
         trimmed := pool.Url
 
@@ -495,6 +500,11 @@ func poolUpdater() {
 
         /* Populate each pool with their info */
         for _, pool := range pools.Pools {
+            /* Skip non forknote and non nodejs pools */
+            if pool.Type != "forknote" && pool.Type != "node.js" {
+                continue
+            }
+
             var p PoolInfo
             trimmed := pool.Url
 
