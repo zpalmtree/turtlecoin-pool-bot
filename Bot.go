@@ -1145,6 +1145,7 @@ func getPools() (Pools, error) {
 
     return pools, nil
 }
+
 func startup() (*discordgo.Session, error) {
     var discord *discordgo.Session
 
