@@ -32,6 +32,8 @@ const poolsChannel string = "430779541921726465"
 /* test channel */
 //const poolsChannel string = "426881205263269900"
 
+const botsChannel string = "401109818607140864"
+
 /* The amount of blocks a pool can vary from the others before we notify */
 const poolMaxDifference int = 5
 
@@ -601,17 +603,18 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
             return
         }
 
-        if role.Name == "NINJA" || role.Name == "Dev-Turtle" ||
+        if role.Name == "NINJA" || role.Name == "Developer" ||
            role.Name == "helper" || role.Name == "FOOTCLAN" ||
-           role.Name == "Contributor" || role.Name == "guerilla" ||
-           role.Name == "service operator" {
+           role.Name == "Contributor" || role.Name == "PR Guerilla" ||
+           role.Name == "Service Operator" || role.Name == "Enforcer" ||
+           role.Name == "core" {
             isColouredName = true
             break
         }
     }
 
-    /* Only allowed privileged users or those in stats channel to use bot */
-    if !isColouredName && m.ChannelID != poolsChannel {
+    /* Only allowed privileged users or those in stats channel or bots to use bot */
+    if !isColouredName && m.ChannelID != poolsChannel && m.ChannelID != botsChannel {
         return
     }
 
