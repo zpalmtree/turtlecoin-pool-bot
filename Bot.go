@@ -613,9 +613,11 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
         }
     }
 
-    /* Only allowed privileged users or those in stats channel or bots to use bot */
-    if !isColouredName && m.ChannelID != poolsChannel && m.ChannelID != botsChannel {
-        return
+    /* Either in pools channel, bots channel, or coloured name to use */
+    if m.ChannelID != poolsChannel && m.ChannelID != botsChannel {
+        if !isColouredName {
+            return
+        }
     }
 
     if m.Content == "/heights" || m.Content == "/status" {
